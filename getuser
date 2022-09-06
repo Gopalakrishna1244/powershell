@@ -1,7 +1,7 @@
 
 #Authorization Info
 $PAT='tqfpr6zxdcofkvhbfrmbe7fxvbot2gyektjv57tyz6dakkv7jotq'
-$AccountName = "devopsamar"
+$AccountName = "devops"
 $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($PAT)"))
 $Headers = @{
         Authorization = "Basic $token"
