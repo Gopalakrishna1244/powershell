@@ -1,0 +1,53 @@
+
+#Authorization Info
+$PAT='tqfpr6zxdcofkvhbfrmbe7fxvbot2gyektjv57tyz6dakkv7jotq'
+$AccountName = "devopsamar"
+$token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($PAT)"))
+$Headers = @{
+        Authorization = "Basic $token"
+    }
+
+
+
+
+New-Item $PSScriptRoot\BuildReleasePipelines.csv -Force
+Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "Organization,Project,Build Definition,Build Definition URL,PipelineType"
+
+
+#Get all projects
+$Projects=Invoke-RestMethod -Method Get -Uri "https://$($AccountName).visualstudio.com/_apis/projects?`$top=999&api-version=5.0-preview.3" -Headers $Headers -ContentType 'application/json'
+Foreach($Project in $Projects.Value)
+{
+	#Get all Build definition
+    $BuildDefs=Invoke-RestMethod -Method Get -Uri "https://$($AccountName).visualstudio.com/$($Project.Id)/_apis/build/definitions?api-version=5.1" -Headers $Headers -ContentType 'application/json'
+    if($BuildDefs.value.count -gt 0)
+    {
+		Foreach($BuildDef in $BuildDefs.Value)
+		{
+            Write-Host $Project.name "---" $BuildDef.name
+               
+				
+            Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($BuildDef.name),https://dev.azure.com/$($Account.accountName)/$($Project.Name)/_build?definitionId=$($BuildDef.id),BuildPipeline"
+                       
+		}
+    }
+
+   
+
+               
+	#Get all Release definition
+    $ReleaseDefs=Invoke-RestMethod -Method Get -Uri "https://vsrm.dev.azure.com/$($AccountName)/$($Project.Id)/_apis/release/definitions?api-version=5.1" -Headers $Headers -ContentType 'application/json'
+        
+              
+    if($ReleaseDefs.value.count -gt 0)
+    {
+		Foreach($ReleaseDef in $ReleaseDefs.Value)
+		{
+            Write-Host $Project.name "---" $ReleaseDef.name
+               
+			Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($ReleaseDef.name), https://dev.azure.com/$($AccountName)/$($Project.Name)/_release?_a=releases&view=mine&definitionId=$($ReleaseDef.id), ReleasePipeline"
+                       
+		}
+    }
+}
+
