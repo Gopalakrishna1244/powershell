@@ -1,7 +1,7 @@
 
 #Authorization Info
-$PAT='tqfpr6zxdcofkvhbfrmbe7fxvbot2gyektjv57ty'
-$AccountName = "devops"
+$PAT='tqfpr6zxdcofkvhbfrmbe7fxvbot2gyektjv57tyz6dakkv7jotq'
+$AccountName = "devopsamar"
 $token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($PAT)"))
 $Headers = @{
         Authorization = "Basic $token"
@@ -11,7 +11,7 @@ $Headers = @{
 
 
 New-Item $PSScriptRoot\BuildReleasePipelines.csv -Force
-Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "Organization,Project,Build Definition,Build Definition URL,PipelineType"
+Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "Organization,Project,Build Definition,Build Definition URL,PipelineType,DisplayName, EmailAddress"
 
 
 #Get all projects
@@ -27,7 +27,7 @@ Foreach($Project in $Projects.Value)
             Write-Host $Project.name "---" $BuildDef.name
                
 				
-            Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($BuildDef.name),https://dev.azure.com/$($Account.accountName)/$($Project.Name)/_build?definitionId=$($BuildDef.id),BuildPipeline"
+            Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($BuildDef.name),https://dev.azure.com/$($Account.accountName)/$($Project.Name)/_build?definitionId=$($BuildDef.id),BuildPipeline,NA,NA"
                        
 		}
     }
@@ -45,9 +45,22 @@ Foreach($Project in $Projects.Value)
 		{
             Write-Host $Project.name "---" $ReleaseDef.name
                
-			Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($ReleaseDef.name), https://dev.azure.com/$($AccountName)/$($Project.Name)/_release?_a=releases&view=mine&definitionId=$($ReleaseDef.id), ReleasePipeline"
+			Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($ReleaseDef.name), https://dev.azure.com/$($AccountName)/$($Project.Name)/_release?_a=releases&view=mine&definitionId=$($ReleaseDef.id),ReleasePipeline,NA, NA"
                        
 		}
     }
-}
 
+    
+    $UsersList=Invoke-RestMethod -Method Get -Uri "https://vsaex.dev.azure.com/$($AccountName)/_apis/userentitlements?top=10000&select=$($Project.Id)&api-version=4.1-preview.1" -Headers $Headers -ContentType 'application/json'
+    if($UsersList.value.count -gt 0)
+    {
+		Foreach($userinfo in $UsersList.Value)
+		{
+            Write-Host $Project.name "---" $userinfo.user.displayName
+               
+				
+            Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),NA,NA,UserList,$($userinfo.user.displayName), $($userinfo.user.mailAddress)"
+                       
+		}
+    }
+  }
