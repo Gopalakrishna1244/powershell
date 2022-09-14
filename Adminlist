@@ -1,0 +1,98 @@
+#Authorization Info
+$PAT='n2wiwrbx35rrkxj3bjqx5s3y55gwtadn6jjsm3kx6xqumao22paq'
+$AccountName = "devopsamar"
+$token = [System.Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes(":$($PAT)"))
+$Headers = @{
+        Authorization = "Basic $token"
+    }
+
+
+
+
+New-Item $PSScriptRoot\BuildReleasePipelines.csv -Force
+Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "Organization,Project,Build Definition,Build Definition URL,PipelineType,SourceType,DisplayName, EmailAddress, Build URL,State,Result, CreatedDate, FinishedDate"
+
+#Get all groups
+$groups=Invoke-RestMethod -Method Get -Uri "https://vssps.dev.azure.com/$($AccountName)/_apis/graph/groups?api-version=6.0-preview.1" -Headers $Headers -ContentType 'application/json'
+
+
+#Get all projects
+$Projects=Invoke-RestMethod -Method Get -Uri "https://$($AccountName).visualstudio.com/_apis/projects?`$top=999&api-version=5.0-preview.3" -Headers $Headers -ContentType 'application/json'
+Foreach($Project in $Projects.Value)
+{
+	#Get all Build definitions
+    $BuildDefs=Invoke-RestMethod -Method Get -Uri "https://$($AccountName).visualstudio.com/$($Project.Id)/_apis/build/definitions?api-version=5.1" -Headers $Headers -ContentType 'application/json'
+    if($BuildDefs.value.count -gt 0)
+    {
+		Foreach($BuildDef in $BuildDefs.Value)
+		{
+            Write-Host $Project.name "---" $BuildDef.name
+              				
+                       
+            $BuildDefdetail= Invoke-RestMethod -Method Get -Uri "https://$($AccountName).visualstudio.com/$($Project.Id)/_apis/build/definitions/$($BuildDef.id)?api-version=5.1" -Headers $Headers -ContentType 'application/json' 
+
+            #Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($BuildDef.name),https://dev.azure.com/$($Account.accountName)/$($Project.Name)/_build?definitionId=$($BuildDef.id),BuildPipeline,$($BuildDefdetail.repository.type),NA,NA, NA,NA,NA,NA,NA"
+
+            $PipelineTriggerDetails= Invoke-RestMethod -Method Get -Uri "https://dev.azure.com/$($AccountName)/$($Project.Id)/_apis/pipelines/$($BuildDef.id)/runs?api-version=6.0-preview.1" -Headers $Headers -ContentType 'application/json' 
+
+            Foreach($Pipelinetriggerinfo in $PipelineTriggerDetails.value)
+            {
+              Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($BuildDef.name),https://dev.azure.com/$($Account.accountName)/$($Project.Name)/_build?definitionId=$($BuildDef.id),TriggerPipelineinfo,$($BuildDefdetail.repository.type),NA,NA,https://dev.azure.com/$($Account.accountName)/$($Project.Name)/_build/results?buildId=$($BuildInfo.id)&view=results,$($Pipelinetriggerinfo.state),$($Pipelinetriggerinfo.result),$($Pipelinetriggerinfo.createdDate),$($Pipelinetriggerinfo.finishedDate)"
+            }
+		}
+    }
+
+   
+                  
+	#Get all Release definition
+    $ReleaseDefs=Invoke-RestMethod -Method Get -Uri "https://vsrm.dev.azure.com/$($AccountName)/$($Project.Id)/_apis/release/definitions?api-version=5.1" -Headers $Headers -ContentType 'application/json'
+        
+              
+    if($ReleaseDefs.value.count -gt 0)
+    {
+		Foreach($ReleaseDef in $ReleaseDefs.Value)
+		{
+            Write-Host $Project.name "---" $ReleaseDef.name
+               
+			Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),$($ReleaseDef.name), https://dev.azure.com/$($AccountName)/$($Project.Name)/_release?_a=releases&view=mine&definitionId=$($ReleaseDef.id),ReleasePipeline,NA, NA, NA, NA, NA, NA, NA, NA"
+                       
+		}
+    }
+
+       
+    
+    #Adminuserslist
+    Foreach($group in $groups.Value)
+    {
+        if($group.displayName -eq "Project Administrators") 
+        {
+          Write-Host $group.displayName
+          Write-Host $group.principalName
+
+            $userdetal =  $group.principalName -split "\\"
+
+            $projectName = $userdetal[0]
+
+            $groupProjectName = $projectName.Split("[,]")
+
+            if($groupProjectName -contains $($project.name))
+            {
+
+              $groupusers  = Invoke-RestMethod -Method Get -Uri "https://vsaex.dev.azure.com/$($AccountName)/_apis/GroupEntitlements/$($group.originId)/members?api-version=6.0-preview.1" -Headers $Headers -ContentType 'application/json'
+              
+              if($groupusers.members.count -gt 0)
+              {
+
+		        Foreach($groupuser in $groupusers.members)
+	            {
+                  Write-Host $Project.name "---" $groupuser.user.displayName
+                  Add-Content -Path $PSScriptRoot\BuildReleasePipelines.csv -Value "$($AccountName),$($Project.Name),NA,NA,ProjectAdministrators,NA, $($groupuser.user.displayName), $($groupuser.user.mailAddress),NA, NA, NA, NA, NA"
+                }
+
+              }
+
+             }
+         }
+     }
+
+}
